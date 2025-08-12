@@ -84,8 +84,8 @@ export default function createStatelessServer({
           };
         }
 
-        // Create output directory
-        const baseDir = join(homedir(), "Desktop", "AI-Generated-Images");
+        // Create output directory in current working directory
+        const baseDir = join(process.cwd(), "generated-images");
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
         const sanitizedPrompt = prompt.slice(0, 50).replace(/[^\w\s-]/g, "").trim();
         
@@ -139,7 +139,7 @@ export default function createStatelessServer({
           content: [
             { 
               type: "text", 
-              text: `Generated ${response.generatedImages.length} image(s) using ${imageModel}\nSaved to: ${baseDir}` 
+              text: `Generated ${response.generatedImages.length} image(s) using ${imageModel}\nSaved to working directory: ${baseDir}` 
             },
             ...results,
           ],
