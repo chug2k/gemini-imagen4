@@ -53,12 +53,18 @@ export default function createStatelessServer({
         .optional()
         .default("image/png")
         .describe("Output image format"),
+      returnBase64: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe("Return base64 image data instead of saving to file (use for remote MCP)"),
     },
     async ({ 
       prompt, 
       model, 
       aspectRatio, 
-      outputMimeType
+      outputMimeType,
+      returnBase64
     }) => {
       try {
         const imageModel = model;
@@ -85,73 +91,108 @@ export default function createStatelessServer({
           };
         }
 
-        // Create output directory in current working directory  
-        const relativePath = "generated-images";
-        const baseDir = join(process.cwd(), relativePath);
-        const timestamp = Math.floor(Date.now() / 1000);
-        const promptWords = prompt.toLowerCase()
-          .replace(/[^\w\s]/g, "")
-          .split(/\s+/)
-          .slice(0, 4)
-          .join("_");
-        const sanitizedPrompt = promptWords.slice(0, 30);
-        
-        try {
-          mkdirSync(baseDir, { recursive: true });
-        } catch (error) {
-          // Directory might already exist, continue
-        }
-
-        const savedFiles: string[] = [];
-        const results: any[] = [];
-
-        response.generatedImages.forEach((generatedImage, index) => {
-          if (generatedImage.raiFilteredReason) {
-            results.push({
-              type: "text" as const,
-              text: `Image ${index + 1} was filtered: ${generatedImage.raiFilteredReason}`,
-            });
-            return;
-          }
-
-          if (generatedImage.image?.imageBytes) {
-            // Convert base64 to buffer and save to file
-            const imageBuffer = Buffer.from(generatedImage.image.imageBytes, 'base64');
-            const extension = outputMimeType === "image/jpeg" ? "jpg" : "png";
-            const filename = `${timestamp}_${sanitizedPrompt}.${extension}`;
-            const filepath = join(baseDir, filename);
-            const relativeFilepath = join(relativePath, filename);
-            
-            try {
-              writeFileSync(filepath, imageBuffer);
-              savedFiles.push(relativeFilepath);
-              results.push({
+        if (returnBase64) {
+          // Return base64 data directly for remote MCP servers
+          const results = response.generatedImages.map((generatedImage, index) => {
+            if (generatedImage.raiFilteredReason) {
+              return {
                 type: "text" as const,
-                text: `Image ${index + 1} saved to: ${relativeFilepath}`,
-              });
-            } catch (error) {
-              results.push({
-                type: "text" as const,
-                text: `Failed to save image ${index + 1}: ${error}`,
-              });
+                text: `Image ${index + 1} was filtered: ${generatedImage.raiFilteredReason}`,
+              };
             }
-          } else {
-            results.push({
+
+            if (generatedImage.image?.imageBytes) {
+              return {
+                type: "image" as const,
+                data: generatedImage.image.imageBytes,
+                mimeType: outputMimeType || "image/png",
+              };
+            }
+
+            return {
               type: "text" as const,
               text: `Image ${index + 1} generation failed - no image data received`,
-            });
-          }
-        });
+            };
+          });
 
-        return {
-          content: [
-            { 
-              type: "text", 
-              text: `Generated ${response.generatedImages.length} image(s) using ${imageModel}\nSaved to: ./${relativePath}/` 
-            },
-            ...results,
-          ],
-        };
+          return {
+            content: [
+              { 
+                type: "text", 
+                text: `Generated ${response.generatedImages.length} image(s) using ${imageModel} (base64 mode)` 
+              },
+              ...results,
+            ],
+          };
+        } else {
+          // Save to file for local MCP servers
+          const relativePath = "generated-images";
+          const baseDir = join(process.cwd(), relativePath);
+          const timestamp = Math.floor(Date.now() / 1000);
+          const promptWords = prompt.toLowerCase()
+            .replace(/[^\w\s]/g, "")
+            .split(/\s+/)
+            .slice(0, 4)
+            .join("_");
+          const sanitizedPrompt = promptWords.slice(0, 30);
+          
+          try {
+            mkdirSync(baseDir, { recursive: true });
+          } catch (error) {
+            // Directory might already exist, continue
+          }
+
+          const savedFiles: string[] = [];
+          const results: any[] = [];
+
+          response.generatedImages.forEach((generatedImage, index) => {
+            if (generatedImage.raiFilteredReason) {
+              results.push({
+                type: "text" as const,
+                text: `Image ${index + 1} was filtered: ${generatedImage.raiFilteredReason}`,
+              });
+              return;
+            }
+
+            if (generatedImage.image?.imageBytes) {
+              // Convert base64 to buffer and save to file
+              const imageBuffer = Buffer.from(generatedImage.image.imageBytes, 'base64');
+              const extension = outputMimeType === "image/jpeg" ? "jpg" : "png";
+              const filename = `${timestamp}_${sanitizedPrompt}.${extension}`;
+              const filepath = join(baseDir, filename);
+              const relativeFilepath = join(relativePath, filename);
+              
+              try {
+                writeFileSync(filepath, imageBuffer);
+                savedFiles.push(relativeFilepath);
+                results.push({
+                  type: "text" as const,
+                  text: `Image ${index + 1} saved to: ${relativeFilepath}`,
+                });
+              } catch (error) {
+                results.push({
+                  type: "text" as const,
+                  text: `Failed to save image ${index + 1}: ${error}`,
+                });
+              }
+            } else {
+              results.push({
+                type: "text" as const,
+                text: `Image ${index + 1} generation failed - no image data received`,
+              });
+            }
+          });
+
+          return {
+            content: [
+              { 
+                type: "text", 
+                text: `Generated ${response.generatedImages.length} image(s) using ${imageModel}\nSaved to: ./${relativePath}/` 
+              },
+              ...results,
+            ],
+          };
+        }
       } catch (error) {
         return {
           content: [
