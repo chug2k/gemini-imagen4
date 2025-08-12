@@ -12,6 +12,8 @@ Generate stunning images from text descriptions using Google's cutting-edge Imag
 - 📸 **Multiple output formats** (PNG, JPEG)
 - 🔒 **Built-in safety filtering** with reason reporting
 - 🚀 **Easy MCP integration** - works with Claude and other MCP clients
+- 🌐 **MCP Resources support** - images accessible via standard MCP protocol
+- ☁️ **Works locally and remotely** - no file access issues
 
 ## 🚀 Quick Start
 
@@ -59,6 +61,9 @@ Generate images from text descriptions with optional customization.
   "outputMimeType": "image/png"
 }
 ```
+
+**Response:**
+The tool returns a resource URI like `generated-image://1754998591_majestic_dragon_soaring.png` that can be accessed via MCP resources.
 
 ## 🔧 Configuration
 
