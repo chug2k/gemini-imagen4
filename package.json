@@ -6,7 +6,7 @@
 	"module": "src/index.ts",
 	"type": "module",
 	"scripts": {
-		"start": "npx @smithery/cli dev",
+		"start": "npx @smithery/cli start",
 		"build": "tsc",
 		"dev": "npx @smithery/cli dev"
 	},
