@@ -85,8 +85,9 @@ export default function createStatelessServer({
           };
         }
 
-        // Create output directory in current working directory
-        const baseDir = join(process.cwd(), "generated-images");
+        // Create output directory in current working directory  
+        const relativePath = "generated-images";
+        const baseDir = join(process.cwd(), relativePath);
         const timestamp = Math.floor(Date.now() / 1000);
         const promptWords = prompt.toLowerCase()
           .replace(/[^\w\s]/g, "")
@@ -119,13 +120,14 @@ export default function createStatelessServer({
             const extension = outputMimeType === "image/jpeg" ? "jpg" : "png";
             const filename = `${timestamp}_${sanitizedPrompt}.${extension}`;
             const filepath = join(baseDir, filename);
+            const relativeFilepath = join(relativePath, filename);
             
             try {
               writeFileSync(filepath, imageBuffer);
-              savedFiles.push(filepath);
+              savedFiles.push(relativeFilepath);
               results.push({
                 type: "text" as const,
-                text: `Image ${index + 1} saved to: ${filepath}`,
+                text: `Image ${index + 1} saved to: ${relativeFilepath}`,
               });
             } catch (error) {
               results.push({
@@ -145,7 +147,7 @@ export default function createStatelessServer({
           content: [
             { 
               type: "text", 
-              text: `Generated ${response.generatedImages.length} image(s) using ${imageModel}\nSaved to working directory: ${baseDir}` 
+              text: `Generated ${response.generatedImages.length} image(s) using ${imageModel}\nSaved to: ./${relativePath}/` 
             },
             ...results,
           ],
