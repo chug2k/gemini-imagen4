@@ -64,7 +64,15 @@ export default function createMcpServer({
     new ResourceTemplate("generated-image://{filename}", { 
       list: async () => {
         // List all images in this session's registry
-        return Array.from(imageRegistry.keys());
+        const resources = Array.from(imageRegistry.values()).map(image => ({
+          uri: image.uri,
+          name: image.filename,
+          title: `Generated Image: ${image.prompt.slice(0, 50)}...`,
+          description: `AI-generated image using ${image.model}`,
+          mimeType: image.mimeType
+        }));
+        
+        return { resources };
       }
     }),
     {
