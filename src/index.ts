@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
 
@@ -38,67 +38,58 @@ export default function createStatelessServer({
   // Initialize Google GenAI client
   const genAI = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
-  // Set server capabilities to include resources
-  server.setCapabilities({
-    resources: {},
-  });
-
-  // Handle resource listing
-  server.setRequestHandler("resources/list", async () => {
-    const resources = Array.from(imageRegistry.values()).map((img) => ({
-      uri: img.uri,
-      name: `Generated Image: ${img.prompt.slice(0, 50)}...`,
-      description: `AI-generated image using ${img.model}`,
-      mimeType: img.mimeType,
-    }));
-
-    return { resources };
-  });
-
-  // Handle resource reading
-  server.setRequestHandler("resources/read", async (request) => {
-    const uri = request.params.uri;
-    const image = imageRegistry.get(uri);
-    
-    if (!image) {
-      throw new Error(`Resource not found: ${uri}`);
-    }
-
-    return {
-      contents: [
-        {
-          uri: image.uri,
-          mimeType: image.mimeType,
-          blob: image.imageData,
-        },
-      ],
-    };
-  });
-
-  // Add image generation tool
-  server.tool(
-    "generate_image_from_text",
-    "Generate an image from a text description using Google Imagen 4.0 models",
+  // Register dynamic resource template for generated images
+  server.registerResource(
+    "generated-image",
+    new ResourceTemplate("generated-image://{filename}", { list: undefined }),
     {
-      prompt: z.string().describe("Text description of the image to generate"),
-      model: z
-        .enum([
-          "imagen-4.0-generate-preview-06-06",
-          "imagen-4.0-fast-generate-preview-06-06", 
-          "imagen-4.0-ultra-generate-preview-06-06"
-        ])
-        .optional()
-        .default("imagen-4.0-generate-preview-06-06")
-        .describe("Imagen 4.0 model variant to use"),
-      aspectRatio: z
-        .enum(["1:1", "3:4", "4:3", "9:16", "16:9"])
-        .optional()
-        .describe("Aspect ratio of generated images"),
-      outputMimeType: z
-        .enum(["image/png", "image/jpeg"])
-        .optional()
-        .default("image/png")
-        .describe("Output image format"),
+      title: "Generated Image",
+      description: "AI-generated images using Google's Imagen models"
+    },
+    async (uri, { filename }) => {
+      const image = imageRegistry.get(uri.href);
+      
+      if (!image) {
+        throw new Error(`Resource not found: ${uri.href}`);
+      }
+
+      return {
+        contents: [{
+          uri: uri.href,
+          mimeType: image.mimeType,
+          blob: image.imageData
+        }]
+      };
+    }
+  );
+
+  // Register image generation tool
+  server.registerTool(
+    "generate_image_from_text",
+    {
+      title: "Generate Image from Text",
+      description: "Generate an image from a text description using Google Imagen 4.0 models",
+      inputSchema: {
+        prompt: z.string().describe("Text description of the image to generate"),
+        model: z
+          .enum([
+            "imagen-4.0-generate-preview-06-06",
+            "imagen-4.0-fast-generate-preview-06-06", 
+            "imagen-4.0-ultra-generate-preview-06-06"
+          ])
+          .optional()
+          .default("imagen-4.0-generate-preview-06-06")
+          .describe("Imagen 4.0 model variant to use"),
+        aspectRatio: z
+          .enum(["1:1", "3:4", "4:3", "9:16", "16:9"])
+          .optional()
+          .describe("Aspect ratio of generated images"),
+        outputMimeType: z
+          .enum(["image/png", "image/jpeg"])
+          .optional()
+          .default("image/png")
+          .describe("Output image format"),
+      }
     },
     async ({ 
       prompt, 
@@ -131,7 +122,6 @@ export default function createStatelessServer({
           };
         }
 
-        const results: any[] = [];
         const generatedImage = response.generatedImages[0];
 
         if (generatedImage.raiFilteredReason) {
