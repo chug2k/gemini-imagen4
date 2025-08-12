@@ -42,7 +42,8 @@ export default function createStatelessServer({
           "imagen-4.0-ultra-generate-preview-06-06"
         ])
         .optional()
-        .describe("Imagen 4.0 model variant to use (defaults to configured model)"),
+        .default("imagen-4.0-generate-preview-06-06")
+        .describe("Imagen 4.0 model variant to use"),
       aspectRatio: z
         .enum(["1:1", "3:4", "4:3", "9:16", "16:9"])
         .optional()
@@ -60,7 +61,7 @@ export default function createStatelessServer({
       outputMimeType
     }) => {
       try {
-        const imageModel = model || config.modelName;
+        const imageModel = model;
         
         const response = await genAI.models.generateImages({
           model: imageModel,
@@ -86,8 +87,13 @@ export default function createStatelessServer({
 
         // Create output directory in current working directory
         const baseDir = join(process.cwd(), "generated-images");
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const sanitizedPrompt = prompt.slice(0, 50).replace(/[^\w\s-]/g, "").trim();
+        const timestamp = Math.floor(Date.now() / 1000);
+        const promptWords = prompt.toLowerCase()
+          .replace(/[^\w\s]/g, "")
+          .split(/\s+/)
+          .slice(0, 4)
+          .join("_");
+        const sanitizedPrompt = promptWords.slice(0, 30);
         
         try {
           mkdirSync(baseDir, { recursive: true });
@@ -111,7 +117,7 @@ export default function createStatelessServer({
             // Convert base64 to buffer and save to file
             const imageBuffer = Buffer.from(generatedImage.image.imageBytes, 'base64');
             const extension = outputMimeType === "image/jpeg" ? "jpg" : "png";
-            const filename = `${timestamp}-${sanitizedPrompt}-${index + 1}.${extension}`;
+            const filename = `${timestamp}_${sanitizedPrompt}.${extension}`;
             const filepath = join(baseDir, filename);
             
             try {
