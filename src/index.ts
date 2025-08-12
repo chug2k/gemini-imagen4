@@ -26,7 +26,7 @@ if (!config.geminiApiKey) {
 
 // Create the MCP server
 const server = new McpServer({
-  name: "Gemini-Imagegen4",
+  name: "Gemini-Imagen4",
   version: "1.0.0",
 });
 

@@ -1,11 +1,11 @@
 {
-	"name": "gemini-imagegen4",
+	"name": "gemini-imagen4",
 	"version": "1.0.0",
 	"description": "🎨 AI Image Generation MCP Server powered by Google's Imagen 4.0 models",
 	"main": "src/index.ts",
 	"type": "module",
 	"bin": {
-		"gemini-imagegen4": "./src/index.ts"
+		"gemini-imagen4": "./src/index.ts"
 	},
 	"scripts": {
 		"start": "tsx src/index.ts",

@@ -1,4 +1,4 @@
-# 🎨 Gemini-Imagegen4
+# 🎨 Gemini-Imagen4
 
 **Local AI Image Generation MCP Server powered by Google's Imagen 4.0 models**
 
@@ -30,13 +30,13 @@ export GEMINI_API_KEY="your-api-key-here"
 
 2. Run directly with npx:
 ```bash
-npx gemini-imagegen4
+npx gemini-imagen4
 ```
 
 Or clone and run locally:
 ```bash
-git clone https://github.com/chug2k/gemini-imagegen4.git
-cd gemini-imagegen4
+git clone https://github.com/chug2k/gemini-imagen4.git
+cd gemini-imagen4
 npm install
 npm run dev
 ```
