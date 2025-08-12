@@ -1,5 +1,4 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createStatefulServer } from "@smithery/sdk/server";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
 
@@ -17,8 +16,8 @@ interface GeneratedImage {
 // Session-based image registries
 const sessionImageRegistries = new Map<string, Map<string, GeneratedImage>>();
 
-// Optional: Define configuration schema to require configuration at connection time
-export const configSchema = z.object({
+// Configuration schema
+const configSchema = z.object({
   geminiApiKey: z.string().describe("Your Google Gemini API key"),
   modelName: z
     .string()
@@ -27,12 +26,15 @@ export const configSchema = z.object({
   debug: z.boolean().default(false).describe("Enable debug logging"),
 });
 
-function createMcpServer({
+type Config = z.infer<typeof configSchema>;
+
+// Main server creation function that Smithery expects
+export default function createMcpServer({
   sessionId,
   config,
 }: {
   sessionId: string;
-  config: z.infer<typeof configSchema>;
+  config: Config;
 }) {
   const server = new McpServer({
     name: "Gemini-Imagegen4",
@@ -45,22 +47,40 @@ function createMcpServer({
   // Get or create image registry for this session
   if (!sessionImageRegistries.has(sessionId)) {
     sessionImageRegistries.set(sessionId, new Map<string, GeneratedImage>());
+    if (config.debug) {
+      console.log(`[Session ${sessionId}] Created new image registry`);
+    }
+  } else {
+    if (config.debug) {
+      const registry = sessionImageRegistries.get(sessionId)!;
+      console.log(`[Session ${sessionId}] Using existing registry with ${registry.size} images`);
+    }
   }
   const imageRegistry = sessionImageRegistries.get(sessionId)!;
 
   // Register dynamic resource template for generated images
   server.registerResource(
     "generated-image",
-    new ResourceTemplate("generated-image://{filename}", { list: undefined }),
+    new ResourceTemplate("generated-image://{filename}", { 
+      list: async () => {
+        // List all images in this session's registry
+        return Array.from(imageRegistry.keys());
+      }
+    }),
     {
       title: "Generated Image",
       description: "AI-generated images using Google's Imagen models"
     },
-    async (uri) => {
-      const image = imageRegistry.get(uri.href);
+    async (uri, { filename }) => {
+      // The filename parameter is extracted from the URI pattern
+      const fullUri = `generated-image://${filename}`;
+      const image = imageRegistry.get(fullUri);
       
       if (!image) {
-        throw new Error(`Resource not found: ${uri.href}`);
+        // Debug: log what we're looking for vs what we have
+        console.error(`Resource not found: ${fullUri}`);
+        console.error(`Available resources:`, Array.from(imageRegistry.keys()));
+        throw new Error(`Resource not found: ${fullUri}`);
       }
 
       return {
@@ -170,6 +190,13 @@ function createMcpServer({
           };
           
           imageRegistry.set(uri, imageData);
+          
+          // Debug logging
+          if (config.debug) {
+            console.log(`[Session ${sessionId}] Stored image: ${uri}`);
+            console.log(`[Session ${sessionId}] Registry now has ${imageRegistry.size} images`);
+            console.log(`[Session ${sessionId}] Keys:`, Array.from(imageRegistry.keys()));
+          }
 
           return {
             content: [
@@ -205,7 +232,5 @@ function createMcpServer({
   return server.server;
 }
 
-// Create and export the stateful server
-export default createStatefulServer(createMcpServer, {
-  schema: configSchema
-});
+// Export the config schema for Smithery to use
+export { configSchema };
