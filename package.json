@@ -12,12 +12,19 @@
 		"build": "tsc",
 		"dev": "tsx src/index.ts"
 	},
-	"keywords": ["mcp", "imagen", "google", "ai", "image-generation"],
+	"keywords": [
+		"mcp",
+		"imagen",
+		"google",
+		"ai",
+		"image-generation"
+	],
 	"author": "",
 	"license": "MIT",
 	"dependencies": {
 		"@google/genai": "^1.13.0",
 		"@modelcontextprotocol/sdk": "^1.12.1",
+		"@smithery/sdk": "^1.5.5",
 		"zod": "^3.25.46"
 	},
 	"devDependencies": {

@@ -1,7 +1,6 @@
 #!/usr/bin/env tsx
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import * as fs from "fs";
@@ -13,87 +12,86 @@ if (!fs.existsSync(GENERATED_IMAGES_DIR)) {
   fs.mkdirSync(GENERATED_IMAGES_DIR, { recursive: true });
 }
 
-// Configuration from environment
-const config = {
-  geminiApiKey: process.env.GEMINI_API_KEY,
-  debug: process.env.DEBUG === "true"
-};
-
-if (!config.geminiApiKey) {
-  console.error("GEMINI_API_KEY environment variable is required");
-  process.exit(1);
-}
-
-// Create the MCP server
-const server = new McpServer({
-  name: "Gemini-Imagen4",
-  version: "1.0.0",
+// Configuration schema
+export const configSchema = z.object({
+  geminiApiKey: z.string().describe("Your Google Gemini API key"),
+  debug: z.boolean().default(false).describe("Enable debug logging"),
 });
 
-// Initialize Google GenAI client
-const genAI = new GoogleGenAI({ apiKey: config.geminiApiKey });
+type Config = z.infer<typeof configSchema>;
 
-// Register resource for generated images directory
-server.registerResource(
-  "generated-images",
-  "file://generated-images/",
-  {
-    title: "Generated Images Directory",
-    description: "Directory containing AI-generated images",
-    mimeType: "inode/directory"
-  },
-  async (uri) => {
-    try {
-      const files = fs.readdirSync(GENERATED_IMAGES_DIR)
-        .filter(file => file.endsWith('.png') || file.endsWith('.jpg'))
-        .map(file => ({
-          uri: `file://generated-images/${file}`,
-          name: file,
-          description: `Generated image: ${file}`,
-          mimeType: file.endsWith('.png') ? 'image/png' : 'image/jpeg'
-        }));
+// Server creation function for Smithery
+export default function createServer({ config }: { config: Config }) {
+  // Create the MCP server
+  const server = new McpServer({
+    name: "Gemini-Imagen4",
+    version: "1.0.0",
+  });
 
-      return {
-        contents: [{
-          uri: uri.href,
-          mimeType: "inode/directory",
-          text: `Generated Images Directory\n\nContains ${files.length} generated images:\n${files.map(f => `- ${f.name}`).join('\n')}`
-        }]
-      };
-    } catch (error) {
-      throw new Error(`Failed to read generated images directory: ${error}`);
+  // Initialize Google GenAI client
+  const genAI = new GoogleGenAI({ apiKey: config.geminiApiKey });
+
+  // Register resource for generated images directory
+  server.registerResource(
+    "generated-images",
+    "file://generated-images/",
+    {
+      title: "Generated Images Directory",
+      description: "Directory containing AI-generated images",
+      mimeType: "inode/directory"
+    },
+    async (uri) => {
+      try {
+        const files = fs.readdirSync(GENERATED_IMAGES_DIR)
+          .filter(file => file.endsWith('.png') || file.endsWith('.jpg'))
+          .map(file => ({
+            uri: `file://generated-images/${file}`,
+            name: file,
+            description: `Generated image: ${file}`,
+            mimeType: file.endsWith('.png') ? 'image/png' : 'image/jpeg'
+          }));
+
+        return {
+          contents: [{
+            uri: uri.href,
+            mimeType: "inode/directory",
+            text: `Generated Images Directory\n\nContains ${files.length} generated images:\n${files.map(f => `- ${f.name}`).join('\n')}`
+          }]
+        };
+      } catch (error) {
+        throw new Error(`Failed to read generated images directory: ${error}`);
+      }
     }
-  }
-);
+  );
 
-// Register image generation tool
-server.registerTool(
-  "generate_image_from_text",
-  {
-    title: "Generate Image from Text",
-    description: "Generate an image from a text description using Google Imagen 4.0 models",
-    inputSchema: {
-      prompt: z.string().describe("Text description of the image to generate"),
-      model: z
-        .enum([
-          "imagen-4.0-generate-preview-06-06",
-          "imagen-4.0-fast-generate-preview-06-06", 
-          "imagen-4.0-ultra-generate-preview-06-06"
-        ])
-        .optional()
-        .default("imagen-4.0-generate-preview-06-06")
-        .describe("Imagen 4.0 model variant to use"),
-      aspectRatio: z
-        .enum(["1:1", "3:4", "4:3", "9:16", "16:9"])
-        .optional()
-        .describe("Aspect ratio of generated images"),
-      outputMimeType: z
-        .enum(["image/png", "image/jpeg"])
-        .optional()
-        .default("image/png")
-        .describe("Output image format"),
-    }
-  },
+  // Register image generation tool
+  server.registerTool(
+    "generate_image_from_text",
+    {
+      title: "Generate Image from Text",
+      description: "Generate an image from a text description using Google Imagen 4.0 models",
+      inputSchema: {
+        prompt: z.string().describe("Text description of the image to generate"),
+        model: z
+          .enum([
+            "imagen-4.0-generate-preview-06-06",
+            "imagen-4.0-fast-generate-preview-06-06", 
+            "imagen-4.0-ultra-generate-preview-06-06"
+          ])
+          .optional()
+          .default("imagen-4.0-generate-preview-06-06")
+          .describe("Imagen 4.0 model variant to use"),
+        aspectRatio: z
+          .enum(["1:1", "3:4", "4:3", "9:16", "16:9"])
+          .optional()
+          .describe("Aspect ratio of generated images"),
+        outputMimeType: z
+          .enum(["image/png", "image/jpeg"])
+          .optional()
+          .default("image/png")
+          .describe("Output image format"),
+      }
+    },
     async ({ 
       prompt, 
       model, 
@@ -191,14 +189,5 @@ server.registerTool(
     }
   );
 
-// Start the server
-async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("Gemini Image Generation MCP server is running...");
+  return server.server;
 }
-
-main().catch((error) => {
-  console.error("Server error:", error);
-  process.exit(1);
-});

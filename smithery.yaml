@@ -1,4 +1,16 @@
-version: 1
-start:
-  command: ["npx", "tsx", "src/index.ts"]
-  # Local only - reads GEMINI_API_KEY from environment
+runtime: typescript
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required: ["geminiApiKey"]
+    properties:
+      geminiApiKey:
+        type: string
+        title: "Gemini API Key"
+        description: "Your Google Gemini API key"
+      debug:
+        type: boolean
+        title: "Debug Mode"
+        description: "Enable debug logging"
+        default: false
