@@ -1,134 +1,99 @@
-import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
-import { GoogleGenAI } from "@google/genai";
+#!/usr/bin/env tsx
 
-// In-memory registry for generated images per session
-interface GeneratedImage {
-  uri: string;
-  filename: string;
-  imageData: string; // base64
-  mimeType: string;
-  prompt: string;
-  model: string;
-  timestamp: number;
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
+import * as fs from "fs";
+import * as path from "path";
+
+// Ensure generated-images directory exists
+const GENERATED_IMAGES_DIR = "./generated-images";
+if (!fs.existsSync(GENERATED_IMAGES_DIR)) {
+  fs.mkdirSync(GENERATED_IMAGES_DIR, { recursive: true });
 }
 
-// Session-based image registries
-const sessionImageRegistries = new Map<string, Map<string, GeneratedImage>>();
+// Configuration from environment
+const config = {
+  geminiApiKey: process.env.GEMINI_API_KEY,
+  debug: process.env.DEBUG === "true"
+};
 
-// Configuration schema
-const configSchema = z.object({
-  geminiApiKey: z.string().describe("Your Google Gemini API key"),
-  modelName: z
-    .string()
-    .default("imagen-4.0-generate-preview-06-06")
-    .describe("Imagen model to use for image generation"),
-  debug: z.boolean().default(false).describe("Enable debug logging"),
+if (!config.geminiApiKey) {
+  console.error("GEMINI_API_KEY environment variable is required");
+  process.exit(1);
+}
+
+// Create the MCP server
+const server = new McpServer({
+  name: "Gemini-Imagegen4",
+  version: "1.0.0",
 });
 
-type Config = z.infer<typeof configSchema>;
+// Initialize Google GenAI client
+const genAI = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
-// Main server creation function that Smithery expects
-export default function createMcpServer({
-  sessionId,
-  config,
-}: {
-  sessionId: string;
-  config: Config;
-}) {
-  const server = new McpServer({
-    name: "Gemini-Imagegen4",
-    version: "1.0.0",
-  });
-
-  // Initialize Google GenAI client
-  const genAI = new GoogleGenAI({ apiKey: config.geminiApiKey });
-
-  // Get or create image registry for this session
-  if (!sessionImageRegistries.has(sessionId)) {
-    sessionImageRegistries.set(sessionId, new Map<string, GeneratedImage>());
-    if (config.debug) {
-      console.log(`[Session ${sessionId}] Created new image registry`);
-    }
-  } else {
-    if (config.debug) {
-      const registry = sessionImageRegistries.get(sessionId)!;
-      console.log(`[Session ${sessionId}] Using existing registry with ${registry.size} images`);
-    }
-  }
-  const imageRegistry = sessionImageRegistries.get(sessionId)!;
-
-  // Register dynamic resource template for generated images
-  server.registerResource(
-    "generated-image",
-    new ResourceTemplate("generated-image://{filename}", { 
-      list: async () => {
-        // List all images in this session's registry
-        const resources = Array.from(imageRegistry.values()).map(image => ({
-          uri: image.uri,
-          name: image.filename,
-          title: `Generated Image: ${image.prompt.slice(0, 50)}...`,
-          description: `AI-generated image using ${image.model}`,
-          mimeType: image.mimeType
+// Register resource for generated images directory
+server.registerResource(
+  "generated-images",
+  "file://generated-images/",
+  {
+    title: "Generated Images Directory",
+    description: "Directory containing AI-generated images",
+    mimeType: "inode/directory"
+  },
+  async (uri) => {
+    try {
+      const files = fs.readdirSync(GENERATED_IMAGES_DIR)
+        .filter(file => file.endsWith('.png') || file.endsWith('.jpg'))
+        .map(file => ({
+          uri: `file://generated-images/${file}`,
+          name: file,
+          description: `Generated image: ${file}`,
+          mimeType: file.endsWith('.png') ? 'image/png' : 'image/jpeg'
         }));
-        
-        return { resources };
-      }
-    }),
-    {
-      title: "Generated Image",
-      description: "AI-generated images using Google's Imagen models"
-    },
-    async (uri, { filename }) => {
-      // The filename parameter is extracted from the URI pattern
-      const fullUri = `generated-image://${filename}`;
-      const image = imageRegistry.get(fullUri);
-      
-      if (!image) {
-        // Debug: log what we're looking for vs what we have
-        console.error(`Resource not found: ${fullUri}`);
-        console.error(`Available resources:`, Array.from(imageRegistry.keys()));
-        throw new Error(`Resource not found: ${fullUri}`);
-      }
 
       return {
         contents: [{
           uri: uri.href,
-          mimeType: image.mimeType,
-          blob: image.imageData
+          mimeType: "inode/directory",
+          text: `Generated Images Directory\n\nContains ${files.length} generated images:\n${files.map(f => `- ${f.name}`).join('\n')}`
         }]
       };
+    } catch (error) {
+      throw new Error(`Failed to read generated images directory: ${error}`);
     }
-  );
+  }
+);
 
-  // Register image generation tool
-  server.registerTool(
-    "generate_image_from_text",
-    {
-      title: "Generate Image from Text",
-      description: "Generate an image from a text description using Google Imagen 4.0 models",
-      inputSchema: {
-        prompt: z.string().describe("Text description of the image to generate"),
-        model: z
-          .enum([
-            "imagen-4.0-generate-preview-06-06",
-            "imagen-4.0-fast-generate-preview-06-06", 
-            "imagen-4.0-ultra-generate-preview-06-06"
-          ])
-          .optional()
-          .default("imagen-4.0-generate-preview-06-06")
-          .describe("Imagen 4.0 model variant to use"),
-        aspectRatio: z
-          .enum(["1:1", "3:4", "4:3", "9:16", "16:9"])
-          .optional()
-          .describe("Aspect ratio of generated images"),
-        outputMimeType: z
-          .enum(["image/png", "image/jpeg"])
-          .optional()
-          .default("image/png")
-          .describe("Output image format"),
-      }
-    },
+// Register image generation tool
+server.registerTool(
+  "generate_image_from_text",
+  {
+    title: "Generate Image from Text",
+    description: "Generate an image from a text description using Google Imagen 4.0 models",
+    inputSchema: {
+      prompt: z.string().describe("Text description of the image to generate"),
+      model: z
+        .enum([
+          "imagen-4.0-generate-preview-06-06",
+          "imagen-4.0-fast-generate-preview-06-06", 
+          "imagen-4.0-ultra-generate-preview-06-06"
+        ])
+        .optional()
+        .default("imagen-4.0-generate-preview-06-06")
+        .describe("Imagen 4.0 model variant to use"),
+      aspectRatio: z
+        .enum(["1:1", "3:4", "4:3", "9:16", "16:9"])
+        .optional()
+        .describe("Aspect ratio of generated images"),
+      outputMimeType: z
+        .enum(["image/png", "image/jpeg"])
+        .optional()
+        .default("image/png")
+        .describe("Output image format"),
+    }
+  },
     async ({ 
       prompt, 
       model, 
@@ -184,33 +149,22 @@ export default function createMcpServer({
           const sanitizedPrompt = promptWords.slice(0, 30);
           const extension = outputMimeType === "image/jpeg" ? "jpg" : "png";
           const filename = `${timestamp}_${sanitizedPrompt}.${extension}`;
-          const uri = `generated-image://${filename}`;
+          const filePath = path.join(GENERATED_IMAGES_DIR, filename);
 
-          // Store in registry
-          const imageData: GeneratedImage = {
-            uri,
-            filename,
-            imageData: generatedImage.image.imageBytes,
-            mimeType: outputMimeType || "image/png",
-            prompt,
-            model: imageModel,
-            timestamp,
-          };
-          
-          imageRegistry.set(uri, imageData);
-          
+          // Convert base64 to buffer and save file
+          const imageBuffer = Buffer.from(generatedImage.image.imageBytes, 'base64');
+          fs.writeFileSync(filePath, imageBuffer);
+
           // Debug logging
           if (config.debug) {
-            console.log(`[Session ${sessionId}] Stored image: ${uri}`);
-            console.log(`[Session ${sessionId}] Registry now has ${imageRegistry.size} images`);
-            console.log(`[Session ${sessionId}] Keys:`, Array.from(imageRegistry.keys()));
+            console.log(`Saved image: ${filePath}`);
           }
 
           return {
             content: [
               { 
                 type: "text", 
-                text: `Generated image using ${imageModel}\nResource available at: ${uri}\n\nUse MCP resources to view the image.` 
+                text: `Generated image using ${imageModel}\nSaved to: ${filePath}\nFile size: ${imageBuffer.length} bytes\n\nYou can access this image via file path or MCP resources.` 
               }
             ],
           };
@@ -237,8 +191,14 @@ export default function createMcpServer({
     }
   );
 
-  return server.server;
+// Start the server
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("Gemini Image Generation MCP server is running...");
 }
 
-// Export the config schema for Smithery to use
-export { configSchema };
+main().catch((error) => {
+  console.error("Server error:", error);
+  process.exit(1);
+});

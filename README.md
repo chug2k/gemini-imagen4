@@ -1,8 +1,8 @@
 # 🎨 Gemini-Imagegen4
 
-**AI Image Generation MCP Server powered by Google's Imagen 4.0 models**
+**Local AI Image Generation MCP Server powered by Google's Imagen 4.0 models**
 
-Generate stunning images from text descriptions using Google's cutting-edge Imagen 4.0 models through the Model Context Protocol (MCP).
+Generate stunning images from text descriptions using Google's cutting-edge Imagen 4.0 models through the Model Context Protocol (MCP). Images are saved locally to `./generated-images/` directory.
 
 ## ✨ Features
 
@@ -11,9 +11,9 @@ Generate stunning images from text descriptions using Google's cutting-edge Imag
 - 🎯 **Flexible aspect ratios** (1:1, 3:4, 4:3, 9:16, 16:9)
 - 📸 **Multiple output formats** (PNG, JPEG)
 - 🔒 **Built-in safety filtering** with reason reporting
-- 🚀 **Easy MCP integration** - works with Claude and other MCP clients
-- 🌐 **MCP Resources support** - images accessible via standard MCP protocol
-- ☁️ **Works locally and remotely** - no file access issues
+- 💾 **Local file storage** - images saved to `./generated-images/` directory
+- 🚀 **Easy local setup** - run with npx or npm
+- 🔌 **MCP Resources** - browse generated images via MCP protocol
 
 ## 🚀 Quick Start
 
@@ -21,26 +21,31 @@ Generate stunning images from text descriptions using Google's cutting-edge Imag
 - Node.js 18+
 - Google Gemini API key ([Get one here](https://ai.google.dev/))
 
-### Installation
+### Installation & Usage
 
-1. Clone this repository:
+1. Set your API key:
 ```bash
-git clone https://github.com/YOUR_USERNAME/gemini-imagegen4.git
+export GEMINI_API_KEY="your-api-key-here"
+```
+
+2. Run directly with npx:
+```bash
+npx gemini-imagegen4
+```
+
+Or clone and run locally:
+```bash
+git clone https://github.com/chug2k/gemini-imagegen4.git
 cd gemini-imagegen4
-```
-
-2. Install dependencies:
-```bash
 npm install
+npm run dev
 ```
-
-3. Configure your API key in your MCP client or when prompted
 
 ### Usage
 
-The server provides one powerful tool:
+Once running, the server provides:
 
-#### `generate_image_from_text`
+#### Tool: `generate_image_from_text`
 Generate images from text descriptions with optional customization.
 
 **Parameters:**
@@ -63,7 +68,10 @@ Generate images from text descriptions with optional customization.
 ```
 
 **Response:**
-The tool returns a resource URI like `generated-image://1754998591_majestic_dragon_soaring.png` that can be accessed via MCP resources.
+Images are saved to `./generated-images/` with timestamped filenames like `1754998591_majestic_dragon_soaring.png`
+
+#### Resource: `generated-images`
+Browse the generated images directory via MCP resources protocol.
 
 ## 🔧 Configuration
 

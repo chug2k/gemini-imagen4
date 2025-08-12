@@ -1,20 +1,4 @@
-runtime: typescript
-startCommand:
-  type: http
-  configSchema:
-    type: object
-    required: ["geminiApiKey"]
-    properties:
-      geminiApiKey:
-        type: string
-        title: "Gemini API Key"
-        description: "Your Google Gemini API key"
-      modelName:
-        type: string
-        title: "Model Name"
-        description: "Imagen model to use for image generation"
-        default: "imagen-4.0-generate-preview-06-06"
-        enum: 
-          - "imagen-4.0-generate-preview-06-06"
-          - "imagen-4.0-fast-generate-preview-06-06"
-          - "imagen-4.0-ultra-generate-preview-06-06"
+version: 1
+start:
+  command: ["npx", "tsx", "src/index.ts"]
+  # Local only - reads GEMINI_API_KEY from environment
