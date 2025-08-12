@@ -3,14 +3,12 @@
 	"version": "1.0.0",
 	"description": "🎨 AI Image Generation MCP Server powered by Google's Imagen 4.0 models",
 	"main": "src/index.ts",
+	"module": "src/index.ts",
 	"type": "module",
-	"bin": {
-		"gemini-imagen4": "./src/index.ts"
-	},
 	"scripts": {
-		"start": "tsx src/index.ts",
+		"start": "npx @smithery/cli dev",
 		"build": "tsc",
-		"dev": "tsx src/index.ts"
+		"dev": "npx @smithery/cli dev"
 	},
 	"keywords": [
 		"mcp",

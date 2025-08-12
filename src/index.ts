@@ -1,5 +1,3 @@
-#!/usr/bin/env tsx
-
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";

@@ -23,23 +23,19 @@ Generate stunning images from text descriptions using Google's cutting-edge Imag
 
 ### Installation & Usage
 
-1. Set your API key:
-```bash
-export GEMINI_API_KEY="your-api-key-here"
-```
-
-2. Run directly with npx:
-```bash
-npx gemini-imagen4
-```
-
-Or clone and run locally:
+1. Clone and install:
 ```bash
 git clone https://github.com/chug2k/gemini-imagen4.git
 cd gemini-imagen4
 npm install
+```
+
+2. Run with Smithery:
+```bash
 npm run dev
 ```
+
+You'll be prompted to enter your Gemini API key when you first run it.
 
 ### Usage
 
