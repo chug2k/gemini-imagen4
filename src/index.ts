@@ -1,6 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
+import { writeFileSync } from "fs";
+import { mkdirSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 
 // Optional: Define configuration schema to require configuration at connection time
 export const configSchema = z.object({
@@ -80,33 +84,62 @@ export default function createStatelessServer({
           };
         }
 
-        const results = response.generatedImages.map((generatedImage, index) => {
+        // Create output directory
+        const baseDir = join(homedir(), "Desktop", "AI-Generated-Images");
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const sanitizedPrompt = prompt.slice(0, 50).replace(/[^\w\s-]/g, "").trim();
+        
+        try {
+          mkdirSync(baseDir, { recursive: true });
+        } catch (error) {
+          // Directory might already exist, continue
+        }
+
+        const savedFiles: string[] = [];
+        const results: any[] = [];
+
+        response.generatedImages.forEach((generatedImage, index) => {
           if (generatedImage.raiFilteredReason) {
-            return {
+            results.push({
               type: "text" as const,
               text: `Image ${index + 1} was filtered: ${generatedImage.raiFilteredReason}`,
-            };
+            });
+            return;
           }
 
           if (generatedImage.image?.imageBytes) {
-            return {
-              type: "image" as const,
-              data: generatedImage.image.imageBytes,
-              mimeType: outputMimeType || "image/png",
-            };
+            // Convert base64 to buffer and save to file
+            const imageBuffer = Buffer.from(generatedImage.image.imageBytes, 'base64');
+            const extension = outputMimeType === "image/jpeg" ? "jpg" : "png";
+            const filename = `${timestamp}-${sanitizedPrompt}-${index + 1}.${extension}`;
+            const filepath = join(baseDir, filename);
+            
+            try {
+              writeFileSync(filepath, imageBuffer);
+              savedFiles.push(filepath);
+              results.push({
+                type: "text" as const,
+                text: `Image ${index + 1} saved to: ${filepath}`,
+              });
+            } catch (error) {
+              results.push({
+                type: "text" as const,
+                text: `Failed to save image ${index + 1}: ${error}`,
+              });
+            }
+          } else {
+            results.push({
+              type: "text" as const,
+              text: `Image ${index + 1} generation failed - no image data received`,
+            });
           }
-
-          return {
-            type: "text" as const,
-            text: `Image ${index + 1} generation failed - no image data received`,
-          };
         });
 
         return {
           content: [
             { 
               type: "text", 
-              text: `Generated ${response.generatedImages.length} image(s) using ${imageModel}` 
+              text: `Generated ${response.generatedImages.length} image(s) using ${imageModel}\nSaved to: ${baseDir}` 
             },
             ...results,
           ],
