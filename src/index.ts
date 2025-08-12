@@ -1,8 +1,9 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createStatefulServer } from "@smithery/sdk/server";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
 
-// In-memory registry for generated images
+// In-memory registry for generated images per session
 interface GeneratedImage {
   uri: string;
   filename: string;
@@ -13,7 +14,8 @@ interface GeneratedImage {
   timestamp: number;
 }
 
-const imageRegistry = new Map<string, GeneratedImage>();
+// Session-based image registries
+const sessionImageRegistries = new Map<string, Map<string, GeneratedImage>>();
 
 // Optional: Define configuration schema to require configuration at connection time
 export const configSchema = z.object({
@@ -25,9 +27,11 @@ export const configSchema = z.object({
   debug: z.boolean().default(false).describe("Enable debug logging"),
 });
 
-export default function createStatelessServer({
+function createMcpServer({
+  sessionId,
   config,
 }: {
+  sessionId: string;
   config: z.infer<typeof configSchema>;
 }) {
   const server = new McpServer({
@@ -38,6 +42,12 @@ export default function createStatelessServer({
   // Initialize Google GenAI client
   const genAI = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
+  // Get or create image registry for this session
+  if (!sessionImageRegistries.has(sessionId)) {
+    sessionImageRegistries.set(sessionId, new Map<string, GeneratedImage>());
+  }
+  const imageRegistry = sessionImageRegistries.get(sessionId)!;
+
   // Register dynamic resource template for generated images
   server.registerResource(
     "generated-image",
@@ -46,7 +56,7 @@ export default function createStatelessServer({
       title: "Generated Image",
       description: "AI-generated images using Google's Imagen models"
     },
-    async (uri, { filename }) => {
+    async (uri) => {
       const image = imageRegistry.get(uri.href);
       
       if (!image) {
@@ -194,3 +204,8 @@ export default function createStatelessServer({
 
   return server.server;
 }
+
+// Create and export the stateful server
+export default createStatefulServer(createMcpServer, {
+  schema: configSchema
+});
