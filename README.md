@@ -23,15 +23,26 @@ Generate stunning images from text descriptions using Google's cutting-edge Imag
 
 ### Installation & Usage
 
-1. Clone and install:
+#### Option 1: Install from npm (Recommended)
+```bash
+npm install -g gemini-imagen4
+```
+
+Then run:
+```bash
+gemini-imagen4
+```
+
+#### Option 2: Run directly with npx
+```bash
+npx gemini-imagen4
+```
+
+#### Option 3: Clone and run locally
 ```bash
 git clone https://github.com/chug2k/gemini-imagen4.git
 cd gemini-imagen4
 npm install
-```
-
-2. Run with Smithery:
-```bash
 npm run dev
 ```
 
@@ -68,6 +79,27 @@ Images are saved to `./generated-images/` with timestamped filenames like `17549
 
 #### Resource: `generated-images`
 Browse the generated images directory via MCP resources protocol.
+
+## 🔌 Adding to Claude Desktop
+
+To use this server with Claude Desktop, add it to your MCP configuration:
+
+**Edit your `claude_desktop_config.json`:**
+```json
+{
+  "mcpServers": {
+    "gemini-imagen4": {
+      "command": "npx",
+      "args": ["gemini-imagen4"],
+      "env": {
+        "GEMINI_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+Replace `your-api-key-here` with your actual Gemini API key, then restart Claude Desktop.
 
 ## 🔧 Configuration
 

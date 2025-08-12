@@ -5,20 +5,35 @@
 	"main": "src/index.ts",
 	"module": "src/index.ts",
 	"type": "module",
+	"bin": {
+		"gemini-imagen4": "./bin/gemini-imagen4.js"
+	},
 	"scripts": {
 		"start": "npx @smithery/cli start",
 		"build": "tsc",
-		"dev": "npx @smithery/cli dev"
+		"dev": "npx @smithery/cli dev",
+		"prepublishOnly": "npm run build"
 	},
 	"keywords": [
 		"mcp",
 		"imagen",
 		"google",
 		"ai",
-		"image-generation"
+		"image-generation",
+		"model-context-protocol",
+		"smithery",
+		"claude"
 	],
-	"author": "",
+	"author": "chug2k",
 	"license": "MIT",
+	"homepage": "https://github.com/chug2k/gemini-imagen4#readme",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/chug2k/gemini-imagen4.git"
+	},
+	"bugs": {
+		"url": "https://github.com/chug2k/gemini-imagen4/issues"
+	},
 	"dependencies": {
 		"@google/genai": "^1.13.0",
 		"@modelcontextprotocol/sdk": "^1.12.1",
